@@ -28,7 +28,16 @@ function CreateCabinForm() {
   });
 
   function onSubmit(data) {
-    mutate({ ...data, image: data.image[0] });
+    // Allow discount to be entered as percentage (e.g. 12 means 12%)
+    // If discount is <= 100 treat it as percentage and convert to absolute amount
+    const regular = Number(data.regularPrice) || 0;
+    const discountInput = Number(data.discount) || 0;
+    const discountAmount =
+      discountInput <= 100
+        ? Math.round((regular * discountInput) / 100)
+        : discountInput;
+
+    mutate({ ...data, image: data.image[0], discount: discountAmount });
   }
 
   function onError(errors) {
@@ -86,9 +95,16 @@ function CreateCabinForm() {
           defaultValue={0}
           {...register("discount", {
             required: "This field is required",
-            validate: (value) =>
-              value <= getValues().regularPrice ||
-              "Discount should be less than regular price",
+            validate: (value) => {
+              const val = Number(value);
+              const regularVal = Number(getValues().regularPrice) || 0;
+              // Accept either a percentage (0-100) or an absolute amount <= regular price
+              if (Number.isNaN(val) || val < 0)
+                return "Discount must be a positive number";
+              if (val <= 100) return true; // percentage input
+              if (regularVal && val <= regularVal) return true; // absolute amount
+              return "Discount should be <= 100 (percent) or <= regular price (absolute)";
+            },
           })}
         />
       </FormRow>
